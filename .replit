@@ -4,7 +4,7 @@ expertMode = true
 
 [nix]
 channel = "stable-25_05"
-packages = ["mesa", "xorg.libX11", "xorg.libXi", "xorg.libXrender", "xorg.libXcursor", "xorg.libXrandr", "xorg.libXinerama", "SDL2", "SDL2_image", "SDL2_mixer", "SDL2_ttf", "libGL", "libGLU"]
+packages = ["mesa", "xorg.libX11", "xorg.libXi", "xorg.libXrender", "xorg.libXcursor", "xorg.libXrandr", "xorg.libXinerama", "SDL2", "SDL2_image", "SDL2_mixer", "SDL2_ttf", "libGL", "libGLU", "xclip", "xsel"]
 
 [workflows]
 runButton = "Project"
