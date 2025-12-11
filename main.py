@@ -70,6 +70,16 @@ class Config:
 class AndroidHelper:
     """Handles Android-specific functionality"""
     
+    _last_youtube_usage_ms = 0
+    _youtube_packages = [
+        'com.google.android.youtube',
+        'com.google.android.youtube.tv',
+        'com.google.android.youtube.music',
+        'com.google.android.apps.youtube.kids',
+        'com.vanced.android.youtube',
+        'app.revanced.android.youtube',
+    ]
+    
     @staticmethod
     def request_all_permissions():
         if not ANDROID_AVAILABLE:
@@ -164,30 +174,11 @@ class AndroidHelper:
             print(f"Error checking usage stats permission: {e}")
             return False
     
-<<<<<<< HEAD
-    # Store previous YouTube usage to detect changes
-    _last_youtube_usage_ms = 0
-    _youtube_packages = [
-        'com.google.android.youtube',
-        'com.google.android.youtube.tv',
-        'com.google.android.youtube.music',
-        'com.google.android.apps.youtube.kids',
-        'com.vanced.android.youtube',
-        'app.revanced.android.youtube',
-    ]
-    
     @staticmethod
     def get_youtube_usage_today_ms():
         """Get total YouTube usage time in milliseconds for today"""
         if not ANDROID_AVAILABLE:
             return 0
-=======
-    @staticmethod
-    def get_current_foreground_app():
-        """Get the currently running foreground app package name"""
-        if not ANDROID_AVAILABLE:
-            return None
->>>>>>> b4eb833 (Improve YouTube usage monitoring and permission checks)
         
         try:
             UsageStatsManager = autoclass('android.app.usage.UsageStatsManager')
@@ -197,7 +188,6 @@ class AndroidHelper:
             context = mActivity
             usm = context.getSystemService(context.USAGE_STATS_SERVICE)
             
-            # Get start of today
             calendar = Calendar.getInstance()
             calendar.set(Calendar.HOUR_OF_DAY, 0)
             calendar.set(Calendar.MINUTE, 0)
@@ -205,19 +195,13 @@ class AndroidHelper:
             calendar.set(Calendar.MILLISECOND, 0)
             start_time = calendar.getTimeInMillis()
             end_time = System.currentTimeMillis()
-<<<<<<< HEAD
-=======
-            start_time = end_time - 60000  # Look back 60 seconds
->>>>>>> b4eb833 (Improve YouTube usage monitoring and permission checks)
             
-            # Query usage stats for today
             stats_list = usm.queryUsageStats(
                 UsageStatsManager.INTERVAL_DAILY,
                 start_time,
                 end_time
             )
             
-<<<<<<< HEAD
             total_youtube_ms = 0
             if stats_list:
                 for i in range(stats_list.size()):
@@ -240,7 +224,6 @@ class AndroidHelper:
         if not ANDROID_AVAILABLE:
             return False
         
-        # First check if we have permission
         if not AndroidHelper.has_usage_stats_permission():
             print("Usage stats permission not granted!")
             return False
@@ -249,10 +232,8 @@ class AndroidHelper:
             current_usage = AndroidHelper.get_youtube_usage_today_ms()
             previous_usage = AndroidHelper._last_youtube_usage_ms
             
-            # Update stored value
             AndroidHelper._last_youtube_usage_ms = current_usage
             
-            # If usage increased since last check (within 10 seconds), YouTube is active
             usage_increase = current_usage - previous_usage
             
             if usage_increase > 0:
@@ -263,58 +244,6 @@ class AndroidHelper:
                 return False
                     
         except Exception as e:
-=======
-            last_foreground_app = None
-            last_foreground_time = 0
-            
-            while events.hasNextEvent():
-                event = UsageEvents.Event()
-                events.getNextEvent(event)
-                event_type = event.getEventType()
-                
-                # Track both MOVE_TO_FOREGROUND (1) and ACTIVITY_RESUMED (23 on newer Android)
-                if event_type == 1 or event_type == 23:
-                    event_time = event.getTimeStamp()
-                    if event_time > last_foreground_time:
-                        last_foreground_app = event.getPackageName()
-                        last_foreground_time = event_time
-            
-            return last_foreground_app
-                    
-        except Exception as e:
-            print(f"Error getting foreground app: {e}")
-        return None
-    
-    @staticmethod
-    def is_youtube_running():
-        if not ANDROID_AVAILABLE:
-            return False
-        
-        # First check if we have permission
-        if not AndroidHelper.has_usage_stats_permission():
-            print("Usage stats permission not granted!")
-            return False
-        
-        try:
-            current_app = AndroidHelper.get_current_foreground_app()
-            
-            if current_app:
-                youtube_packages = [
-                    'com.google.android.youtube',
-                    'com.google.android.youtube.tv',
-                    'com.google.android.youtube.music',
-                    'com.google.android.apps.youtube.kids',
-                    'com.vanced.android.youtube',  # YouTube Vanced
-                    'app.revanced.android.youtube',  # ReVanced
-                ]
-                if current_app in youtube_packages:
-                    print(f"YouTube detected: {current_app}")
-                    return True
-                else:
-                    print(f"Current app: {current_app}")
-                    
-        except Exception as e:
->>>>>>> b4eb833 (Improve YouTube usage monitoring and permission checks)
             print(f"Error checking YouTube: {e}")
         return False
     
@@ -322,7 +251,7 @@ class AndroidHelper:
     def get_youtube_minutes_today():
         """Get YouTube usage in minutes for today"""
         ms = AndroidHelper.get_youtube_usage_today_ms()
-        return ms / 60000  # Convert ms to minutes
+        return ms / 60000
     
     @staticmethod
     def show_overlay_window():
@@ -349,7 +278,7 @@ class AndroidHelper:
                 LayoutParams.MATCH_PARENT,
                 overlay_type,
                 LayoutParams.FLAG_NOT_FOCUSABLE | LayoutParams.FLAG_LAYOUT_IN_SCREEN,
-                -3  # PixelFormat.TRANSLUCENT
+                -3
             )
             
             tv = TextView(context)
@@ -462,7 +391,6 @@ class SettingsScreen(Screen):
         
         main_layout.add_widget(Label(text='--- Permissions ---', size_hint_y=0.05))
         
-        # Permission status indicator
         self.perm_status_label = Label(
             text='Checking permissions...',
             size_hint_y=0.06,
@@ -486,7 +414,6 @@ class SettingsScreen(Screen):
         
         main_layout.add_widget(perms_layout)
         
-        # Check permission button
         check_perm_btn = Button(
             text='Check Permission Status',
             size_hint_y=0.08,
@@ -548,24 +475,19 @@ class SettingsScreen(Screen):
         """Check and display permission status"""
         if AndroidHelper.has_usage_stats_permission():
             self.perm_status_label.text = "Usage Access: GRANTED"
-            self.perm_status_label.color = (0, 1, 0, 1)  # Green
+            self.perm_status_label.color = (0, 1, 0, 1)
         else:
             self.perm_status_label.text = "Usage Access: NOT GRANTED - Tap 'Usage Access' button!"
-            self.perm_status_label.color = (1, 0, 0, 1)  # Red
+            self.perm_status_label.color = (1, 0, 0, 1)
     
     def on_enter(self):
         """Called when screen is shown"""
         self.config = Config.load()
         self.check_permissions()
-<<<<<<< HEAD
-        # Update usage from Android's actual data
         actual_usage = AndroidHelper.get_youtube_minutes_today()
         self.usage_label.text = f"{int(actual_usage)} minutes (from Android)"
-=======
->>>>>>> b4eb833 (Improve YouTube usage monitoring and permission checks)
     
     def save_and_start(self, instance):
-        # Check permission before starting
         if not AndroidHelper.has_usage_stats_permission():
             popup = Popup(
                 title='Permission Required',
@@ -660,7 +582,6 @@ class MonitoringScreen(Screen):
             self.status_display.color = (1, 1, 1, 1)
             return
         
-        # Check permission first
         if not AndroidHelper.has_usage_stats_permission():
             self.status_display.text = "ERROR: Usage Access NOT GRANTED!"
             self.status_display.color = (1, 0, 0, 1)
@@ -668,25 +589,20 @@ class MonitoringScreen(Screen):
             self.youtube_status.color = (1, 0.5, 0, 1)
             return
         
-<<<<<<< HEAD
-        # Get actual YouTube usage from Android system
         self.minutes_used = AndroidHelper.get_youtube_minutes_today()
         self.minutes_remaining = max(0, self.config['daily_limit_minutes'] - self.minutes_used)
         
-        # Check if YouTube is currently active
-=======
->>>>>>> b4eb833 (Improve YouTube usage monitoring and permission checks)
         youtube_running = AndroidHelper.is_youtube_running()
         
         if youtube_running:
             self.youtube_status.text = f"YouTube: ACTIVE (used {int(self.minutes_used)} min today)"
-            self.youtube_status.color = (1, 0.5, 0, 1)  # Orange
+            self.youtube_status.color = (1, 0.5, 0, 1)
             
             if self.minutes_remaining <= 0:
                 self.show_block_screen()
         else:
             self.youtube_status.text = f"YouTube: Not Active (used {int(self.minutes_used)} min today)"
-            self.youtube_status.color = (0, 1, 0, 1)  # Green
+            self.youtube_status.color = (0, 1, 0, 1)
         
         self.status_display.color = (1, 1, 1, 1)
         self.update_display()
