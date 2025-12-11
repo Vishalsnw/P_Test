@@ -1,0 +1,48 @@
+name: Wipe repository (Delete all files)
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  wipe:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository (full history)
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: true
+
+      - name: Remove all files except .git
+        run: |
+          set -e
+          # Enable dotglob so hidden files are included in globs
+          shopt -s dotglob
+          # Loop over all top-level entries and delete everything except .git
+          for entry in * .[^.]*; do
+            if [ -e "$entry" ] && [ "$entry" != ".git" ]; then
+              echo "Removing: $entry"
+              rm -rf "$entry"
+            fi
+          done
+          # show what's left
+          echo "Remaining top-level files/folders:"
+          ls -la || true
+
+      - name: Commit deletions
+        run: |
+          set -e
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "Wipe repo: delete all files" || echo "No changes to commit"
+
+      - name: Force push back to current branch
+        run: |
+          set -e
+          BRANCH=$(git rev-parse --abbrev-ref HEAD)
+          echo "Pushing to branch: $BRANCH"
+          git push origin "$BRANCH" --force
