@@ -4,7 +4,7 @@ expertMode = true
 
 [nix]
 channel = "stable-25_05"
-packages = ["SDL2", "SDL2_image", "SDL2_mixer", "SDL2_ttf", "libGL", "libcxx", "mesa", "mtdev", "pkg-config", "xorg.libX11", "xorg.libXcursor", "xorg.libXi", "xorg.libXrandr"]
+packages = ["SDL2", "SDL2_image", "SDL2_mixer", "SDL2_ttf", "freetype", "lcms2", "libGL", "libcxx", "libimagequant", "libjpeg", "libtiff", "libwebp", "libxcrypt", "mesa", "mtdev", "openjpeg", "pkg-config", "tcl", "tk", "xorg.libX11", "xorg.libXcursor", "xorg.libXi", "xorg.libXrandr", "zlib"]
 
 [workflows]
 runButton = "Project"
