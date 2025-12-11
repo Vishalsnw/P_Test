@@ -1,5 +1,30 @@
+modules = ["python-3.11"]
 [agent]
 expertMode = true
 
 [nix]
 channel = "stable-25_05"
+packages = ["SDL2", "SDL2_image", "SDL2_mixer", "SDL2_ttf", "libcxx", "mtdev", "pkg-config", "mesa", "xorg.libX11", "xorg.libXcursor", "xorg.libXrandr", "xorg.libXi", "libGL"]
+
+[workflows]
+runButton = "Project"
+
+[[workflows.workflow]]
+name = "Project"
+mode = "parallel"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "YouTube Limiter App"
+
+[[workflows.workflow]]
+name = "YouTube Limiter App"
+author = "agent"
+
+[workflows.workflow.metadata]
+outputType = "vnc"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "python main.py"
