@@ -31,7 +31,7 @@ presplash.filename = presplash.png
 
 icon.filename = icon.png
 
-android.meta_data = android.app.device_admin=@xml/device_admin
+android.manifest = AndroidManifest.xml
 
 android.add_src = java
 

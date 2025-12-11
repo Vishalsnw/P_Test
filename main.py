@@ -148,17 +148,39 @@ class AndroidHelper:
             return False
         
         try:
-            ActivityManager = autoclass('android.app.ActivityManager')
-            context = mActivity
-            am = context.getSystemService(context.ACTIVITY_SERVICE)
+            UsageStatsManager = autoclass('android.app.usage.UsageStatsManager')
+            UsageEvents = autoclass('android.app.usage.UsageEvents')
+            System = autoclass('java.lang.System')
             
-            running_apps = am.getRunningAppProcesses()
-            if running_apps:
-                for process in running_apps.toArray():
-                    if 'youtube' in str(process.processName).lower():
-                        return True
+            context = mActivity
+            usm = context.getSystemService(context.USAGE_STATS_SERVICE)
+            
+            end_time = System.currentTimeMillis()
+            start_time = end_time - 5000
+            
+            events = usm.queryEvents(start_time, end_time)
+            
+            last_foreground_app = None
+            while events.hasNextEvent():
+                event = UsageEvents.Event()
+                events.getNextEvent(event)
+                
+                if event.getEventType() == UsageEvents.Event.MOVE_TO_FOREGROUND:
+                    last_foreground_app = event.getPackageName()
+            
+            if last_foreground_app:
+                youtube_packages = [
+                    'com.google.android.youtube',
+                    'com.google.android.youtube.tv',
+                    'com.google.android.youtube.music',
+                    'com.google.android.apps.youtube.kids'
+                ]
+                if last_foreground_app in youtube_packages:
+                    print(f"YouTube detected: {last_foreground_app}")
+                    return True
+                    
         except Exception as e:
-            print(f"Error checking YouTube: {e}")
+            print(f"Error checking YouTube via UsageStats: {e}")
         return False
     
     @staticmethod
