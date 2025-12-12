@@ -1,7 +1,7 @@
-# YouTube Limiter - Parental Control App
+# Screen Time Limiter - Parental Control App
 
 ## Overview
-A Python-based Android parental control app that limits children's YouTube usage. When the time limit is reached, it displays a full-screen "battery drained" overlay to discourage further use.
+A Python-based Android parental control app that limits children's screen time. When the timer expires, it displays a full-screen "battery drained" overlay that appears over any app currently in the foreground.
 
 ## Project Structure
 ```
@@ -20,14 +20,21 @@ A Python-based Android parental control app that limits children's YouTube usage
 - **Pyjnius** - Python-Java bridge for Android APIs
 
 ## Key Features
-1. Parent PIN protection
-2. Configurable daily time limits (10-180 minutes)
-3. YouTube detection and monitoring
-4. Full-screen "battery drained" overlay
-5. Device Admin protection against uninstallation
+1. Parent PIN protection (default: 1234)
+2. Configurable timer (1-120 minutes)
+3. Full-screen "battery drained" overlay when timer expires
+4. Overlay appears over any app in foreground
+5. PIN-protected unlock to dismiss overlay
+
+## How It Works
+1. Parent logs in with PIN
+2. Sets desired time limit (e.g., 5 minutes)
+3. Starts timer and gives device to child
+4. When timer expires, "Battery Drained" overlay covers the entire screen
+5. Only parent with PIN can dismiss the overlay
 
 ## Running on Desktop (Preview)
-The app can run on desktop for testing, but Android-specific features (overlay, usage detection, device admin) are simulated.
+The app can run on desktop for testing, but Android-specific overlay features are simulated.
 
 ```bash
 python main.py
@@ -40,8 +47,12 @@ pip install buildozer
 buildozer android debug
 ```
 
+## Android Permissions Required
+- SYSTEM_ALERT_WINDOW - For displaying overlay over other apps
+
 ## Recent Changes
+- 2025-12-12: Simplified to timer-based approach (overlay appears after set time)
 - 2025-12-11: Initial project setup with Kivy application
 
 ## User Preferences
-- None recorded yet
+- Simple timer-based approach preferred over YouTube usage monitoring
