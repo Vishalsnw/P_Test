@@ -67,6 +67,7 @@ class AndroidHelper:
     
     overlay_view = None
     window_manager = None
+    service_running = False
     
     @staticmethod
     def request_all_permissions():
@@ -78,6 +79,66 @@ class AndroidHelper:
             Permission.ACCESS_NETWORK_STATE,
         ]
         request_permissions(permissions)
+    
+    @staticmethod
+    def start_timer_service():
+        """Start the background timer service"""
+        if not ANDROID_AVAILABLE:
+            print("Would start timer service on Android")
+            return True
+        
+        try:
+            from android import mActivity
+            from jnius import autoclass
+            
+            service_name = 'org.parentalcontrol.youtubelimiter.ServiceTimerservice'
+            
+            Intent = autoclass('android.content.Intent')
+            PythonActivity = autoclass('org.kivy.android.PythonActivity')
+            
+            intent = Intent()
+            intent.setClassName(mActivity, service_name)
+            
+            Build = autoclass('android.os.Build')
+            if Build.VERSION.SDK_INT >= 26:
+                mActivity.startForegroundService(intent)
+            else:
+                mActivity.startService(intent)
+            
+            AndroidHelper.service_running = True
+            print("Timer service started successfully!")
+            return True
+        except Exception as e:
+            print(f"Error starting timer service: {e}")
+            import traceback
+            traceback.print_exc()
+            return False
+    
+    @staticmethod
+    def stop_timer_service():
+        """Stop the background timer service"""
+        if not ANDROID_AVAILABLE:
+            print("Would stop timer service on Android")
+            return True
+        
+        try:
+            from android import mActivity
+            from jnius import autoclass
+            
+            service_name = 'org.parentalcontrol.youtubelimiter.ServiceTimerservice'
+            
+            Intent = autoclass('android.content.Intent')
+            
+            intent = Intent()
+            intent.setClassName(mActivity, service_name)
+            mActivity.stopService(intent)
+            
+            AndroidHelper.service_running = False
+            print("Timer service stopped!")
+            return True
+        except Exception as e:
+            print(f"Error stopping timer service: {e}")
+            return False
     
     @staticmethod
     def request_overlay_permission():
@@ -472,15 +533,17 @@ class TimerScreen(Screen):
         self.config['timer_minutes'] = minutes
         Config.save(self.config)
         
-        self.status_label.text = "Timer ACTIVE"
+        AndroidHelper.start_timer_service()
+        
+        self.status_label.text = "Timer ACTIVE (Background Service Running)"
         self.status_label.color = (0, 1, 0, 1)
         
         self.resume_countdown()
         
         popup = Popup(
             title='Timer Started',
-            content=Label(text=f'Timer set for {minutes} minutes.\nOverlay will appear when time is up.'),
-            size_hint=(0.8, 0.3)
+            content=Label(text=f'Timer set for {minutes} minutes.\nYou can now close the app.\nOverlay will appear when time is up!'),
+            size_hint=(0.8, 0.4)
         )
         popup.open()
     
@@ -538,6 +601,7 @@ class TimerScreen(Screen):
         self.config['timer_end_timestamp'] = None
         Config.save(self.config)
         
+        AndroidHelper.stop_timer_service()
         AndroidHelper.hide_overlay_window()
         
         self.status_label.text = "Timer Stopped"

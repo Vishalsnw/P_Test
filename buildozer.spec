@@ -14,7 +14,7 @@ orientation = portrait
 
 fullscreen = 0
 
-android.permissions = INTERNET,ACCESS_NETWORK_STATE,SYSTEM_ALERT_WINDOW,PACKAGE_USAGE_STATS,RECEIVE_BOOT_COMPLETED,FOREGROUND_SERVICE,BIND_DEVICE_ADMIN,GET_TASKS
+android.permissions = INTERNET,ACCESS_NETWORK_STATE,SYSTEM_ALERT_WINDOW,PACKAGE_USAGE_STATS,RECEIVE_BOOT_COMPLETED,FOREGROUND_SERVICE,FOREGROUND_SERVICE_SPECIAL_USE,BIND_DEVICE_ADMIN,GET_TASKS,WAKE_LOCK
 
 android.api = 33
 android.minapi = 21
@@ -36,6 +36,8 @@ android.manifest = AndroidManifest.xml
 android.add_src = java
 
 android.add_resources = res
+
+services = TimerService:service/main.py:foreground
 
 [buildozer]
 log_level = 2
