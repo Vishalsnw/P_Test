@@ -24,7 +24,7 @@ def load_config():
 def show_overlay():
     """Show the battery drained overlay over all apps"""
     try:
-        from jnius import autoclass
+        from jnius import autoclass, PythonJavaClass, java_method
         
         PythonService = autoclass('org.kivy.android.PythonService')
         service = PythonService.mService
@@ -56,11 +56,29 @@ def show_overlay():
             LayoutParams.FLAG_NOT_FOCUSABLE | 
             LayoutParams.FLAG_NOT_TOUCH_MODAL |
             LayoutParams.FLAG_LAYOUT_IN_SCREEN |
+            LayoutParams.FLAG_LAYOUT_NO_LIMITS |
             LayoutParams.FLAG_SHOW_WHEN_LOCKED |
             LayoutParams.FLAG_TURN_SCREEN_ON,
             -3
         )
         params.gravity = Gravity.TOP | Gravity.START
+        
+        class AddViewRunnable(PythonJavaClass):
+            __javainterfaces__ = ['java/lang/Runnable']
+            
+            def __init__(self, wm, layout, params):
+                super().__init__()
+                self.wm = wm
+                self.layout = layout
+                self.params = params
+            
+            @java_method('()V')
+            def run(self):
+                try:
+                    self.wm.addView(self.layout, self.params)
+                    print("SERVICE: Overlay added to WindowManager!")
+                except Exception as e:
+                    print(f"SERVICE: Error adding view: {e}")
         
         layout = LinearLayout(context)
         layout.setOrientation(LinearLayout.VERTICAL)
@@ -88,20 +106,11 @@ def show_overlay():
         percent.setGravity(Gravity.CENTER)
         layout.addView(percent)
         
-        def add_view():
-            wm.addView(layout, params)
-            print("SERVICE: Overlay shown successfully!")
-        
         handler = Handler(Looper.getMainLooper())
+        runnable = AddViewRunnable(wm, layout, params)
+        handler.post(runnable)
         
-        from android.runnable import run_on_ui_thread
-        
-        @run_on_ui_thread
-        def show():
-            add_view()
-        
-        show()
-        
+        print("SERVICE: Overlay posted to main thread handler!")
         return True
     except Exception as e:
         print(f"SERVICE ERROR showing overlay: {e}")

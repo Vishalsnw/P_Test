@@ -91,19 +91,8 @@ class AndroidHelper:
             from android import mActivity
             from jnius import autoclass
             
-            service_name = 'org.parentalcontrol.youtubelimiter.ServiceTimerservice'
-            
-            Intent = autoclass('android.content.Intent')
-            PythonActivity = autoclass('org.kivy.android.PythonActivity')
-            
-            intent = Intent()
-            intent.setClassName(mActivity, service_name)
-            
-            Build = autoclass('android.os.Build')
-            if Build.VERSION.SDK_INT >= 26:
-                mActivity.startForegroundService(intent)
-            else:
-                mActivity.startService(intent)
+            service = autoclass('org.parentalcontrol.youtubelimiter.ServiceTimerservice')
+            service.start(mActivity, '')
             
             AndroidHelper.service_running = True
             print("Timer service started successfully!")
@@ -125,13 +114,8 @@ class AndroidHelper:
             from android import mActivity
             from jnius import autoclass
             
-            service_name = 'org.parentalcontrol.youtubelimiter.ServiceTimerservice'
-            
-            Intent = autoclass('android.content.Intent')
-            
-            intent = Intent()
-            intent.setClassName(mActivity, service_name)
-            mActivity.stopService(intent)
+            service = autoclass('org.parentalcontrol.youtubelimiter.ServiceTimerservice')
+            service.stop(mActivity)
             
             AndroidHelper.service_running = False
             print("Timer service stopped!")
