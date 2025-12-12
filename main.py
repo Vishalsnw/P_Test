@@ -117,46 +117,133 @@ class AndroidHelper:
     def show_overlay_window():
         """Show full-screen battery drained overlay"""
         if not ANDROID_AVAILABLE:
-            print("Would show overlay window on Android")
+            print("Would show overlay window on Android - SIMULATED")
             return True
         
         try:
-            WindowManager = autoclass('android.view.WindowManager')
-            LayoutParams = autoclass('android.view.WindowManager$LayoutParams')
-            TextView = autoclass('android.widget.TextView')
-            Color = autoclass('android.graphics.Color')
-            Gravity = autoclass('android.view.Gravity')
-            Build = autoclass('android.os.Build')
+            from android.runnable import run_on_ui_thread
             
-            context = mActivity
-            wm = context.getSystemService(context.WINDOW_SERVICE)
+            @run_on_ui_thread
+            def create_overlay_ui():
+                try:
+                    WindowManager = autoclass('android.view.WindowManager')
+                    LayoutParams = autoclass('android.view.WindowManager$LayoutParams')
+                    LinearLayout = autoclass('android.widget.LinearLayout')
+                    TextView = autoclass('android.widget.TextView')
+                    Color = autoclass('android.graphics.Color')
+                    Gravity = autoclass('android.view.Gravity')
+                    Build = autoclass('android.os.Build')
+                    TypedValue = autoclass('android.util.TypedValue')
+                    Context = autoclass('android.content.Context')
+                    
+                    context = mActivity
+                    wm = context.getSystemService(Context.WINDOW_SERVICE)
+                    
+                    if Build.VERSION.SDK_INT >= 26:
+                        overlay_type = LayoutParams.TYPE_APPLICATION_OVERLAY
+                    else:
+                        overlay_type = 2038
+                    
+                    params = LayoutParams(
+                        LayoutParams.MATCH_PARENT,
+                        LayoutParams.MATCH_PARENT,
+                        overlay_type,
+                        LayoutParams.FLAG_NOT_FOCUSABLE | 
+                        LayoutParams.FLAG_NOT_TOUCH_MODAL |
+                        LayoutParams.FLAG_LAYOUT_IN_SCREEN,
+                        -3
+                    )
+                    params.gravity = Gravity.TOP | Gravity.START
+                    
+                    layout = LinearLayout(context)
+                    layout.setOrientation(LinearLayout.VERTICAL)
+                    layout.setGravity(Gravity.CENTER)
+                    layout.setBackgroundColor(Color.BLACK)
+                    
+                    title = TextView(context)
+                    title.setText("Battery Drained")
+                    title.setTextColor(Color.WHITE)
+                    title.setTextSize(TypedValue.COMPLEX_UNIT_SP, 48)
+                    title.setGravity(Gravity.CENTER)
+                    layout.addView(title)
+                    
+                    subtitle = TextView(context)
+                    subtitle.setText("\n\nPlease charge your device\n\n")
+                    subtitle.setTextColor(Color.WHITE)
+                    subtitle.setTextSize(TypedValue.COMPLEX_UNIT_SP, 24)
+                    subtitle.setGravity(Gravity.CENTER)
+                    layout.addView(subtitle)
+                    
+                    percent = TextView(context)
+                    percent.setText("0%")
+                    percent.setTextColor(Color.WHITE)
+                    percent.setTextSize(TypedValue.COMPLEX_UNIT_SP, 36)
+                    percent.setGravity(Gravity.CENTER)
+                    layout.addView(percent)
+                    
+                    wm.addView(layout, params)
+                    
+                    AndroidHelper.overlay_view = layout
+                    AndroidHelper.window_manager = wm
+                    
+                    print("Overlay shown successfully on Android!")
+                except Exception as e:
+                    print(f"Error creating overlay: {e}")
+                    import traceback
+                    traceback.print_exc()
             
-            overlay_type = LayoutParams.TYPE_APPLICATION_OVERLAY if Build.VERSION.SDK_INT >= 26 else LayoutParams.TYPE_PHONE
-            
-            params = LayoutParams(
-                LayoutParams.MATCH_PARENT,
-                LayoutParams.MATCH_PARENT,
-                overlay_type,
-                LayoutParams.FLAG_NOT_FOCUSABLE | LayoutParams.FLAG_LAYOUT_IN_SCREEN | LayoutParams.FLAG_FULLSCREEN,
-                -3
-            )
-            
-            tv = TextView(context)
-            tv.setText("\n\n\n\nBattery Drained\n\nPlease charge your device\n\n0%")
-            tv.setTextColor(Color.WHITE)
-            tv.setBackgroundColor(Color.BLACK)
-            tv.setGravity(Gravity.CENTER)
-            tv.setTextSize(32)
-            
-            wm.addView(tv, params)
-            
-            AndroidHelper.overlay_view = tv
-            AndroidHelper.window_manager = wm
-            
-            print("Overlay shown successfully")
+            create_overlay_ui()
             return True
+        except ImportError:
+            print("android.runnable not available, trying direct method")
+            try:
+                WindowManager = autoclass('android.view.WindowManager')
+                LayoutParams = autoclass('android.view.WindowManager$LayoutParams')
+                TextView = autoclass('android.widget.TextView')
+                Color = autoclass('android.graphics.Color')
+                Gravity = autoclass('android.view.Gravity')
+                Build = autoclass('android.os.Build')
+                Context = autoclass('android.content.Context')
+                
+                context = mActivity
+                wm = context.getSystemService(Context.WINDOW_SERVICE)
+                
+                if Build.VERSION.SDK_INT >= 26:
+                    overlay_type = LayoutParams.TYPE_APPLICATION_OVERLAY
+                else:
+                    overlay_type = 2038
+                
+                params = LayoutParams(
+                    LayoutParams.MATCH_PARENT,
+                    LayoutParams.MATCH_PARENT,
+                    overlay_type,
+                    LayoutParams.FLAG_NOT_FOCUSABLE | LayoutParams.FLAG_LAYOUT_IN_SCREEN,
+                    -3
+                )
+                
+                tv = TextView(context)
+                tv.setText("\n\n\nBattery Drained\n\nPlease charge your device\n\n0%")
+                tv.setTextColor(Color.WHITE)
+                tv.setBackgroundColor(Color.BLACK)
+                tv.setGravity(Gravity.CENTER)
+                tv.setTextSize(32)
+                
+                wm.addView(tv, params)
+                
+                AndroidHelper.overlay_view = tv
+                AndroidHelper.window_manager = wm
+                
+                print("Overlay shown (direct method)!")
+                return True
+            except Exception as e:
+                print(f"Error showing overlay (direct): {e}")
+                import traceback
+                traceback.print_exc()
+                return False
         except Exception as e:
             print(f"Error showing overlay: {e}")
+            import traceback
+            traceback.print_exc()
             return False
     
     @staticmethod
@@ -168,10 +255,25 @@ class AndroidHelper:
         
         try:
             if AndroidHelper.overlay_view and AndroidHelper.window_manager:
-                AndroidHelper.window_manager.removeView(AndroidHelper.overlay_view)
-                AndroidHelper.overlay_view = None
-                AndroidHelper.window_manager = None
-                print("Overlay hidden successfully")
+                try:
+                    from android.runnable import run_on_ui_thread
+                    
+                    @run_on_ui_thread
+                    def remove_ui():
+                        try:
+                            AndroidHelper.window_manager.removeView(AndroidHelper.overlay_view)
+                            AndroidHelper.overlay_view = None
+                            AndroidHelper.window_manager = None
+                            print("Overlay hidden successfully")
+                        except Exception as e:
+                            print(f"Error removing overlay: {e}")
+                    
+                    remove_ui()
+                except ImportError:
+                    AndroidHelper.window_manager.removeView(AndroidHelper.overlay_view)
+                    AndroidHelper.overlay_view = None
+                    AndroidHelper.window_manager = None
+                    print("Overlay hidden (direct)")
                 return True
         except Exception as e:
             print(f"Error hiding overlay: {e}")
