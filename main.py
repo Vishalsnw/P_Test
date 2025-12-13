@@ -1,21 +1,28 @@
 """
 YouTube Parental Control App
-Simple timer-based approach: After set time elapses, shows a "battery drained" overlay.
+Professional timer-based approach with multiple attractive overlay screens.
 """
 
 from kivy.app import App
 from kivy.uix.boxlayout import BoxLayout
+from kivy.uix.floatlayout import FloatLayout
+from kivy.uix.relativelayout import RelativeLayout
 from kivy.uix.button import Button
 from kivy.uix.label import Label
 from kivy.uix.popup import Popup
 from kivy.uix.textinput import TextInput
 from kivy.uix.slider import Slider
-from kivy.uix.screenmanager import ScreenManager, Screen
+from kivy.uix.widget import Widget
+from kivy.uix.screenmanager import ScreenManager, Screen, FadeTransition
 from kivy.clock import Clock
-from kivy.properties import NumericProperty, StringProperty
+from kivy.properties import NumericProperty, StringProperty, ListProperty
 from kivy.core.window import Window
+from kivy.graphics import Color, Rectangle, RoundedRectangle, Line, Ellipse
+from kivy.animation import Animation
+from kivy.metrics import dp, sp
 import json
 import os
+import random
 from datetime import datetime, timedelta
 
 try:
@@ -28,8 +35,80 @@ except ImportError:
     print("Running on desktop - Android features disabled")
 
 
+COLORS = {
+    'primary': (0.13, 0.59, 0.95, 1),
+    'primary_dark': (0.08, 0.4, 0.75, 1),
+    'secondary': (0.29, 0.69, 0.31, 1),
+    'accent': (1, 0.34, 0.13, 1),
+    'background': (0.12, 0.12, 0.15, 1),
+    'surface': (0.18, 0.18, 0.22, 1),
+    'surface_light': (0.24, 0.24, 0.28, 1),
+    'text_primary': (1, 1, 1, 1),
+    'text_secondary': (0.7, 0.7, 0.75, 1),
+    'error': (0.96, 0.26, 0.21, 1),
+    'warning': (1, 0.76, 0.03, 1),
+    'success': (0.3, 0.69, 0.31, 1),
+}
+
+OVERLAY_THEMES = {
+    'battery_drained': {
+        'bg_color': (0.05, 0.05, 0.08, 1),
+        'accent_color': (0.8, 0.2, 0.2, 1),
+        'icon': '',
+        'title': 'Battery Critically Low',
+        'subtitle': 'Connect charger to continue',
+        'percent': '0%',
+        'detail': 'Device shutting down to protect battery health'
+    },
+    'system_update': {
+        'bg_color': (0.05, 0.12, 0.2, 1),
+        'accent_color': (0.13, 0.59, 0.95, 1),
+        'icon': '',
+        'title': 'System Update Required',
+        'subtitle': 'Installing critical security patches',
+        'percent': 'Please wait...',
+        'detail': 'Do not turn off your device'
+    },
+    'overheating': {
+        'bg_color': (0.15, 0.05, 0.02, 1),
+        'accent_color': (1, 0.4, 0.1, 1),
+        'icon': '',
+        'title': 'Device Overheating',
+        'subtitle': 'Temperature: 48°C',
+        'percent': 'COOLING DOWN',
+        'detail': 'Device paused to prevent hardware damage'
+    },
+    'storage_full': {
+        'bg_color': (0.1, 0.08, 0.15, 1),
+        'accent_color': (0.61, 0.15, 0.69, 1),
+        'icon': '',
+        'title': 'Storage Full',
+        'subtitle': 'No space available',
+        'percent': '99.9% Used',
+        'detail': 'Delete files to continue using device'
+    },
+    'network_error': {
+        'bg_color': (0.08, 0.1, 0.12, 1),
+        'accent_color': (0.55, 0.55, 0.6, 1),
+        'icon': '',
+        'title': 'Network Unavailable',
+        'subtitle': 'Connection lost',
+        'percent': 'OFFLINE',
+        'detail': 'Check your internet connection'
+    },
+    'maintenance': {
+        'bg_color': (0.1, 0.12, 0.08, 1),
+        'accent_color': (0.85, 0.65, 0.13, 1),
+        'icon': '',
+        'title': 'System Maintenance',
+        'subtitle': 'Optimizing device performance',
+        'percent': 'In Progress...',
+        'detail': 'This may take several minutes'
+    }
+}
+
+
 class Config:
-    """Manages app configuration and persistence"""
     CONFIG_FILE = "parental_config.json"
     
     DEFAULT_CONFIG = {
@@ -37,6 +116,7 @@ class Config:
         "timer_minutes": 5,
         "timer_end_timestamp": None,
         "is_timer_active": False,
+        "selected_overlay": "random",
     }
     
     @classmethod
@@ -63,8 +143,6 @@ class Config:
 
 
 class AndroidHelper:
-    """Handles Android-specific functionality"""
-    
     overlay_view = None
     window_manager = None
     service_running = False
@@ -82,7 +160,6 @@ class AndroidHelper:
     
     @staticmethod
     def start_timer_service():
-        """Start the background timer service"""
         if not ANDROID_AVAILABLE:
             print("Would start timer service on Android")
             return True
@@ -105,7 +182,6 @@ class AndroidHelper:
     
     @staticmethod
     def stop_timer_service():
-        """Stop the background timer service"""
         if not ANDROID_AVAILABLE:
             print("Would stop timer service on Android")
             return True
@@ -146,7 +222,6 @@ class AndroidHelper:
     
     @staticmethod
     def has_overlay_permission():
-        """Check if overlay permission is granted"""
         if not ANDROID_AVAILABLE:
             return True
         
@@ -160,7 +235,6 @@ class AndroidHelper:
     
     @staticmethod
     def show_overlay_window():
-        """Show full-screen battery drained overlay"""
         if not ANDROID_AVAILABLE:
             print("Would show overlay window on Android - SIMULATED")
             return True
@@ -293,7 +367,6 @@ class AndroidHelper:
     
     @staticmethod
     def hide_overlay_window():
-        """Remove the overlay window"""
         if not ANDROID_AVAILABLE:
             print("Would hide overlay window on Android")
             return True
@@ -326,7 +399,6 @@ class AndroidHelper:
     
     @staticmethod
     def start_lock_task():
-        """Start Android Lock Task Mode to prevent home/back/recent apps"""
         if not ANDROID_AVAILABLE:
             print("Would start lock task mode on Android")
             return True
@@ -346,7 +418,6 @@ class AndroidHelper:
     
     @staticmethod
     def stop_lock_task():
-        """Stop Android Lock Task Mode"""
         if not ANDROID_AVAILABLE:
             print("Would stop lock task mode on Android")
             return True
@@ -362,7 +433,6 @@ class AndroidHelper:
     
     @staticmethod
     def keep_screen_on(enable):
-        """Keep the screen on or allow it to sleep"""
         if not ANDROID_AVAILABLE:
             print(f"Would set keep screen on: {enable}")
             return True
@@ -388,7 +458,6 @@ class AndroidHelper:
     
     @staticmethod
     def hide_navigation_bar():
-        """Hide the navigation bar for immersive mode"""
         if not ANDROID_AVAILABLE:
             return True
         
@@ -414,45 +483,187 @@ class AndroidHelper:
             return False
 
 
-class LoginScreen(Screen):
-    """Parent PIN entry screen"""
+class GradientBackground(Widget):
+    def __init__(self, colors=None, **kwargs):
+        super().__init__(**kwargs)
+        self.colors = colors or [COLORS['background'], COLORS['surface']]
+        self.bind(size=self._update, pos=self._update)
+        self._update()
+    
+    def _update(self, *args):
+        self.canvas.before.clear()
+        with self.canvas.before:
+            Color(*self.colors[0])
+            Rectangle(pos=self.pos, size=self.size)
+
+
+class StyledButton(Button):
+    def __init__(self, btn_color=None, text_color=None, **kwargs):
+        super().__init__(**kwargs)
+        self.btn_color = btn_color or COLORS['primary']
+        self.text_color = text_color or COLORS['text_primary']
+        self.background_color = (0, 0, 0, 0)
+        self.background_normal = ''
+        self.color = self.text_color
+        self.bold = True
+        self.bind(size=self._update, pos=self._update)
+        self._update()
+    
+    def _update(self, *args):
+        self.canvas.before.clear()
+        with self.canvas.before:
+            Color(*self.btn_color)
+            RoundedRectangle(pos=self.pos, size=self.size, radius=[dp(12)])
+
+
+class StyledTextInput(TextInput):
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self.background_color = COLORS['surface_light']
+        self.foreground_color = COLORS['text_primary']
+        self.cursor_color = COLORS['primary']
+        self.padding = [dp(15), dp(12)]
+        self.font_size = sp(18)
+
+
+class CircularProgress(Widget):
+    progress = NumericProperty(0)
+    color = ListProperty([0.13, 0.59, 0.95, 1])
     
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
-        layout = BoxLayout(orientation='vertical', padding=20, spacing=10)
+        self.bind(progress=self._update, size=self._update, pos=self._update, color=self._update)
+        self._update()
+    
+    def _update(self, *args):
+        self.canvas.clear()
+        with self.canvas:
+            Color(0.2, 0.2, 0.25, 1)
+            d = min(self.width, self.height) - dp(20)
+            center_x = self.x + self.width / 2
+            center_y = self.y + self.height / 2
+            Line(circle=(center_x, center_y, d / 2), width=dp(8))
+            
+            Color(*self.color)
+            angle = self.progress * 360
+            if angle > 0:
+                Line(circle=(center_x, center_y, d / 2, 0, angle), width=dp(8), cap='round')
+
+
+class PulsingDot(Widget):
+    color = ListProperty([0.8, 0.2, 0.2, 1])
+    
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self.bind(size=self._update, pos=self._update)
+        self._update()
+        self._animate()
+    
+    def _update(self, *args):
+        self.canvas.clear()
+        with self.canvas:
+            Color(*self.color)
+            d = min(self.width, self.height)
+            Ellipse(pos=(self.center_x - d/2, self.center_y - d/2), size=(d, d))
+    
+    def _animate(self):
+        anim = Animation(opacity=0.3, duration=0.8) + Animation(opacity=1, duration=0.8)
+        anim.repeat = True
+        anim.start(self)
+
+
+class LoginScreen(Screen):
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self.build_ui()
+    
+    def build_ui(self):
+        layout = FloatLayout()
         
-        layout.add_widget(Label(
-            text='Screen Time Limiter\nParental Control',
-            font_size='24sp',
-            halign='center',
-            size_hint_y=0.3
-        ))
+        bg = GradientBackground()
+        layout.add_widget(bg)
         
-        layout.add_widget(Label(text='Enter Parent PIN:', size_hint_y=0.1))
+        content = BoxLayout(
+            orientation='vertical',
+            padding=[dp(30), dp(50)],
+            spacing=dp(20),
+            size_hint=(0.85, 0.7),
+            pos_hint={'center_x': 0.5, 'center_y': 0.5}
+        )
         
-        self.pin_input = TextInput(
+        icon_label = Label(
+            text='',
+            font_size=sp(80),
+            size_hint_y=0.25
+        )
+        content.add_widget(icon_label)
+        
+        title_label = Label(
+            text='Screen Guardian',
+            font_size=sp(32),
+            bold=True,
+            color=COLORS['text_primary'],
+            size_hint_y=0.12
+        )
+        content.add_widget(title_label)
+        
+        subtitle_label = Label(
+            text='Parental Control System',
+            font_size=sp(16),
+            color=COLORS['text_secondary'],
+            size_hint_y=0.08
+        )
+        content.add_widget(subtitle_label)
+        
+        content.add_widget(Widget(size_hint_y=0.05))
+        
+        pin_label = Label(
+            text='Enter Parent PIN',
+            font_size=sp(14),
+            color=COLORS['text_secondary'],
+            size_hint_y=0.06,
+            halign='left'
+        )
+        content.add_widget(pin_label)
+        
+        self.pin_input = StyledTextInput(
             multiline=False,
             password=True,
-            font_size='24sp',
-            size_hint_y=0.15,
-            halign='center',
-            input_filter='int'
+            hint_text='PIN Code',
+            input_filter='int',
+            size_hint_y=0.12,
+            halign='center'
         )
-        layout.add_widget(self.pin_input)
+        content.add_widget(self.pin_input)
         
-        login_btn = Button(
-            text='Login',
-            size_hint_y=0.15,
-            background_color=(0.2, 0.6, 0.2, 1)
+        content.add_widget(Widget(size_hint_y=0.03))
+        
+        login_btn = StyledButton(
+            text='UNLOCK',
+            btn_color=COLORS['primary'],
+            size_hint_y=0.12,
+            font_size=sp(18)
         )
         login_btn.bind(on_release=self.verify_pin)
-        layout.add_widget(login_btn)
+        content.add_widget(login_btn)
         
-        self.status_label = Label(text='', size_hint_y=0.1, color=(1, 0, 0, 1))
-        layout.add_widget(self.status_label)
+        self.status_label = Label(
+            text='',
+            font_size=sp(14),
+            color=COLORS['error'],
+            size_hint_y=0.08
+        )
+        content.add_widget(self.status_label)
         
-        layout.add_widget(Label(text='Default PIN: 1234', size_hint_y=0.2, color=(0.5, 0.5, 0.5, 1)))
+        hint_label = Label(
+            text='Default PIN: 1234',
+            font_size=sp(12),
+            color=(0.4, 0.4, 0.45, 1),
+            size_hint_y=0.06
+        )
+        content.add_widget(hint_label)
         
+        layout.add_widget(content)
         self.add_widget(layout)
     
     def verify_pin(self, instance):
@@ -467,10 +678,8 @@ class LoginScreen(Screen):
 
 
 class TimerScreen(Screen):
-    """Timer configuration and control screen"""
-    
     time_remaining = StringProperty("00:00")
-    timer_status = StringProperty("Timer Not Active")
+    timer_status = StringProperty("Ready")
     
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
@@ -480,101 +689,215 @@ class TimerScreen(Screen):
         self.build_ui()
     
     def build_ui(self):
-        main_layout = BoxLayout(orientation='vertical', padding=20, spacing=10)
+        layout = FloatLayout()
         
-        main_layout.add_widget(Label(
-            text='Screen Time Limiter',
-            font_size='22sp',
-            size_hint_y=0.1
-        ))
+        bg = GradientBackground()
+        layout.add_widget(bg)
         
-        self.status_label = Label(
-            text=self.timer_status,
-            font_size='18sp',
-            size_hint_y=0.1,
-            color=(1, 1, 0, 1)
+        content = BoxLayout(
+            orientation='vertical',
+            padding=[dp(25), dp(30)],
+            spacing=dp(12),
+            size_hint=(0.9, 0.95),
+            pos_hint={'center_x': 0.5, 'center_y': 0.5}
         )
-        main_layout.add_widget(self.status_label)
+        
+        header = BoxLayout(size_hint_y=0.08, spacing=dp(10))
+        header.add_widget(Label(
+            text='Screen Guardian',
+            font_size=sp(22),
+            bold=True,
+            color=COLORS['text_primary'],
+            halign='left',
+            size_hint_x=0.7
+        ))
+        self.status_indicator = PulsingDot(
+            size_hint=(None, None),
+            size=(dp(12), dp(12)),
+            color=COLORS['text_secondary']
+        )
+        header.add_widget(self.status_indicator)
+        content.add_widget(header)
+        
+        timer_box = BoxLayout(orientation='vertical', size_hint_y=0.28)
+        
+        self.progress_widget = CircularProgress(
+            size_hint=(None, None),
+            size=(dp(180), dp(180)),
+            pos_hint={'center_x': 0.5}
+        )
+        timer_box.add_widget(self.progress_widget)
         
         self.time_display = Label(
             text=self.time_remaining,
-            font_size='48sp',
-            size_hint_y=0.15
+            font_size=sp(52),
+            bold=True,
+            color=COLORS['text_primary']
         )
-        main_layout.add_widget(self.time_display)
+        timer_box.add_widget(self.time_display)
         
-        limit_layout = BoxLayout(orientation='vertical', size_hint_y=0.15)
-        self.limit_label = Label(text=f"Set Timer: {self.config['timer_minutes']} minutes")
-        limit_layout.add_widget(self.limit_label)
-        self.limit_slider = Slider(min=1, max=120, value=self.config['timer_minutes'])
+        self.status_label = Label(
+            text=self.timer_status,
+            font_size=sp(16),
+            color=COLORS['text_secondary']
+        )
+        timer_box.add_widget(self.status_label)
+        content.add_widget(timer_box)
+        
+        slider_box = BoxLayout(orientation='vertical', size_hint_y=0.12, spacing=dp(5))
+        self.limit_label = Label(
+            text=f"Timer Duration: {self.config['timer_minutes']} min",
+            font_size=sp(14),
+            color=COLORS['text_secondary'],
+            halign='left'
+        )
+        slider_box.add_widget(self.limit_label)
+        
+        self.limit_slider = Slider(
+            min=1, max=120,
+            value=self.config['timer_minutes'],
+            cursor_size=(dp(24), dp(24)),
+            value_track=True,
+            value_track_color=COLORS['primary'],
+            cursor_image='',
+            background_width=dp(4)
+        )
         self.limit_slider.bind(value=self.on_limit_change)
-        limit_layout.add_widget(self.limit_slider)
-        main_layout.add_widget(limit_layout)
+        slider_box.add_widget(self.limit_slider)
+        content.add_widget(slider_box)
         
-        self.start_btn = Button(
-            text='START TIMER',
-            size_hint_y=0.12,
-            background_color=(0.2, 0.6, 0.2, 1),
-            font_size='20sp'
+        btn_box = BoxLayout(spacing=dp(15), size_hint_y=0.1)
+        
+        self.start_btn = StyledButton(
+            text='START',
+            btn_color=COLORS['success'],
+            font_size=sp(16)
         )
         self.start_btn.bind(on_release=self.start_timer)
-        main_layout.add_widget(self.start_btn)
+        btn_box.add_widget(self.start_btn)
         
-        self.stop_btn = Button(
-            text='STOP TIMER',
-            size_hint_y=0.12,
-            background_color=(0.6, 0.2, 0.2, 1),
-            font_size='20sp'
+        self.stop_btn = StyledButton(
+            text='STOP',
+            btn_color=COLORS['error'],
+            font_size=sp(16)
         )
         self.stop_btn.bind(on_release=self.stop_timer)
-        main_layout.add_widget(self.stop_btn)
+        btn_box.add_widget(self.stop_btn)
+        content.add_widget(btn_box)
         
-        main_layout.add_widget(Label(text='--- Permissions ---', size_hint_y=0.05))
+        content.add_widget(Widget(size_hint_y=0.02))
+        
+        overlay_section = BoxLayout(orientation='vertical', size_hint_y=0.15, spacing=dp(5))
+        overlay_section.add_widget(Label(
+            text='Overlay Style',
+            font_size=sp(14),
+            color=COLORS['text_secondary'],
+            halign='left'
+        ))
+        
+        overlay_names = ['Random'] + [k.replace('_', ' ').title() for k in OVERLAY_THEMES.keys()]
+        overlay_row = BoxLayout(spacing=dp(8))
+        self.overlay_buttons = []
+        
+        for i, name in enumerate(overlay_names[:4]):
+            btn = StyledButton(
+                text=name,
+                btn_color=COLORS['primary'] if i == 0 else COLORS['surface_light'],
+                font_size=sp(11)
+            )
+            btn.name = name.lower().replace(' ', '_')
+            btn.bind(on_release=self.select_overlay)
+            self.overlay_buttons.append(btn)
+            overlay_row.add_widget(btn)
+        
+        overlay_section.add_widget(overlay_row)
+        
+        overlay_row2 = BoxLayout(spacing=dp(8))
+        for i, name in enumerate(overlay_names[4:]):
+            btn = StyledButton(
+                text=name,
+                btn_color=COLORS['surface_light'],
+                font_size=sp(11)
+            )
+            btn.name = name.lower().replace(' ', '_')
+            btn.bind(on_release=self.select_overlay)
+            self.overlay_buttons.append(btn)
+            overlay_row2.add_widget(btn)
+        
+        overlay_section.add_widget(overlay_row2)
+        content.add_widget(overlay_section)
+        
+        perm_section = BoxLayout(orientation='vertical', size_hint_y=0.12, spacing=dp(5))
         
         self.perm_status = Label(
-            text='Checking overlay permission...',
-            size_hint_y=0.06,
-            color=(1, 1, 0, 1)
+            text='Checking permissions...',
+            font_size=sp(12),
+            color=COLORS['warning'],
+            halign='left'
         )
-        main_layout.add_widget(self.perm_status)
+        perm_section.add_widget(self.perm_status)
         
-        perm_btn = Button(
+        perm_btn = StyledButton(
             text='Grant Overlay Permission',
-            size_hint_y=0.08,
-            background_color=(0.3, 0.5, 0.7, 1)
+            btn_color=COLORS['surface_light'],
+            font_size=sp(12)
         )
         perm_btn.bind(on_release=lambda x: AndroidHelper.request_overlay_permission())
-        main_layout.add_widget(perm_btn)
+        perm_section.add_widget(perm_btn)
+        content.add_widget(perm_section)
         
-        main_layout.add_widget(Label(text='--- Change PIN ---', size_hint_y=0.05))
+        pin_section = BoxLayout(size_hint_y=0.08, spacing=dp(10))
+        pin_section.add_widget(Label(
+            text='New PIN:',
+            font_size=sp(12),
+            color=COLORS['text_secondary'],
+            size_hint_x=0.25
+        ))
+        self.new_pin_input = StyledTextInput(
+            multiline=False,
+            password=True,
+            input_filter='int',
+            hint_text='****',
+            size_hint_x=0.45
+        )
+        pin_section.add_widget(self.new_pin_input)
+        change_btn = StyledButton(
+            text='Change',
+            btn_color=COLORS['surface_light'],
+            font_size=sp(12),
+            size_hint_x=0.3
+        )
+        change_btn.bind(on_release=self.change_pin)
+        pin_section.add_widget(change_btn)
+        content.add_widget(pin_section)
         
-        pin_layout = BoxLayout(size_hint_y=0.1, spacing=10)
-        pin_layout.add_widget(Label(text='New PIN:'))
-        self.new_pin_input = TextInput(multiline=False, password=True, input_filter='int')
-        pin_layout.add_widget(self.new_pin_input)
-        change_pin_btn = Button(text='Change', size_hint_x=0.3)
-        change_pin_btn.bind(on_release=self.change_pin)
-        pin_layout.add_widget(change_pin_btn)
-        main_layout.add_widget(pin_layout)
+        layout.add_widget(content)
+        self.add_widget(layout)
+    
+    def select_overlay(self, instance):
+        for btn in self.overlay_buttons:
+            btn.btn_color = COLORS['surface_light']
+            btn._update()
+        instance.btn_color = COLORS['primary']
+        instance._update()
         
-        self.add_widget(main_layout)
+        self.config['selected_overlay'] = instance.name
+        Config.save(self.config)
     
     def on_enter(self):
-        """Called when screen is shown"""
         self.config = Config.load()
         self.check_permission()
         self.check_existing_timer()
     
     def check_permission(self):
         if AndroidHelper.has_overlay_permission():
-            self.perm_status.text = "Overlay Permission: GRANTED"
-            self.perm_status.color = (0, 1, 0, 1)
+            self.perm_status.text = "Overlay Permission: Granted"
+            self.perm_status.color = COLORS['success']
         else:
-            self.perm_status.text = "Overlay Permission: NOT GRANTED"
-            self.perm_status.color = (1, 0, 0, 1)
+            self.perm_status.text = "Overlay Permission: Required"
+            self.perm_status.color = COLORS['error']
     
     def check_existing_timer(self):
-        """Check if there's an active timer from before"""
         if self.config.get('is_timer_active') and self.config.get('timer_end_timestamp'):
             end_time = datetime.fromisoformat(self.config['timer_end_timestamp'])
             if datetime.now() < end_time:
@@ -584,7 +907,7 @@ class TimerScreen(Screen):
                 self.trigger_overlay()
     
     def on_limit_change(self, instance, value):
-        self.limit_label.text = f"Set Timer: {int(value)} minutes"
+        self.limit_label.text = f"Timer Duration: {int(value)} min"
         self.config['timer_minutes'] = int(value)
         Config.save(self.config)
     
@@ -592,8 +915,9 @@ class TimerScreen(Screen):
         if not AndroidHelper.has_overlay_permission():
             popup = Popup(
                 title='Permission Required',
-                content=Label(text='Please grant Overlay permission first!\nTap "Grant Overlay Permission" button.'),
-                size_hint=(0.9, 0.4)
+                content=Label(text='Please grant Overlay\npermission first!'),
+                size_hint=(0.8, 0.35),
+                background_color=COLORS['surface']
             )
             popup.open()
             return
@@ -608,34 +932,40 @@ class TimerScreen(Screen):
         
         AndroidHelper.start_timer_service()
         
-        self.status_label.text = "Timer ACTIVE (Background Service Running)"
-        self.status_label.color = (0, 1, 0, 1)
+        self.status_label.text = "Timer Active"
+        self.status_label.color = COLORS['success']
+        self.status_indicator.color = COLORS['success']
         
         self.resume_countdown()
         
         popup = Popup(
             title='Timer Started',
-            content=Label(text=f'Timer set for {minutes} minutes.\nYou can now close the app.\nOverlay will appear when time is up!'),
+            content=Label(
+                text=f'Screen limit: {minutes} min\n\nYou can close this app.\nOverlay appears when time expires.',
+                halign='center'
+            ),
             size_hint=(0.8, 0.4)
         )
         popup.open()
     
     def resume_countdown(self):
-        """Start or resume the countdown display"""
         if self.countdown_event:
             self.countdown_event.cancel()
-        self.countdown_event = Clock.schedule_interval(self.update_countdown, 1)
-        self.status_label.text = "Timer ACTIVE"
-        self.status_label.color = (0, 1, 0, 1)
+        self.countdown_event = Clock.schedule_interval(self.update_countdown, 0.5)
+        self.status_label.text = "Timer Active"
+        self.status_label.color = COLORS['success']
+        self.status_indicator.color = COLORS['success']
     
     def update_countdown(self, dt):
         if not self.timer_end_time:
             return
         
         remaining = self.timer_end_time - datetime.now()
+        total_minutes = self.config.get('timer_minutes', 5)
         
         if remaining.total_seconds() <= 0:
             self.time_display.text = "00:00"
+            self.progress_widget.progress = 1
             self.trigger_overlay()
             return
         
@@ -643,15 +973,22 @@ class TimerScreen(Screen):
         minutes = total_seconds // 60
         seconds = total_seconds % 60
         self.time_display.text = f"{minutes:02d}:{seconds:02d}"
+        
+        elapsed = (total_minutes * 60) - total_seconds
+        progress = elapsed / (total_minutes * 60) if total_minutes > 0 else 0
+        self.progress_widget.progress = min(1, max(0, progress))
+        
+        if remaining.total_seconds() < 60:
+            self.progress_widget.color = list(COLORS['error'])
     
     def trigger_overlay(self):
-        """Time's up - show the overlay"""
         if self.countdown_event:
             self.countdown_event.cancel()
             self.countdown_event = None
         
-        self.status_label.text = "TIME'S UP! Overlay Shown"
-        self.status_label.color = (1, 0, 0, 1)
+        self.status_label.text = "Time's Up!"
+        self.status_label.color = COLORS['error']
+        self.status_indicator.color = COLORS['error']
         self.time_display.text = "00:00"
         
         success = AndroidHelper.show_overlay_window()
@@ -661,10 +998,14 @@ class TimerScreen(Screen):
             self.config['timer_end_timestamp'] = None
             Config.save(self.config)
             
+            selected = self.config.get('selected_overlay', 'random')
+            if selected == 'random':
+                selected = random.choice(list(OVERLAY_THEMES.keys()))
+            
+            self.manager.get_screen('blocked').set_theme(selected)
             self.manager.current = 'blocked'
     
     def stop_timer(self, instance):
-        """Stop the timer and hide overlay if shown"""
         if self.countdown_event:
             self.countdown_event.cancel()
             self.countdown_event = None
@@ -677,9 +1018,12 @@ class TimerScreen(Screen):
         AndroidHelper.stop_timer_service()
         AndroidHelper.hide_overlay_window()
         
-        self.status_label.text = "Timer Stopped"
-        self.status_label.color = (1, 1, 0, 1)
+        self.status_label.text = "Stopped"
+        self.status_label.color = COLORS['text_secondary']
+        self.status_indicator.color = COLORS['text_secondary']
         self.time_display.text = "00:00"
+        self.progress_widget.progress = 0
+        self.progress_widget.color = list(COLORS['primary'])
     
     def change_pin(self, instance):
         new_pin = self.new_pin_input.text
@@ -689,86 +1033,162 @@ class TimerScreen(Screen):
             self.new_pin_input.text = ''
             popup = Popup(
                 title='Success',
-                content=Label(text='PIN changed successfully!'),
-                size_hint=(0.8, 0.3)
+                content=Label(text='PIN updated successfully!'),
+                size_hint=(0.7, 0.25)
             )
             popup.open()
         else:
             popup = Popup(
                 title='Error',
                 content=Label(text='PIN must be at least 4 digits'),
-                size_hint=(0.8, 0.3)
+                size_hint=(0.7, 0.25)
             )
             popup.open()
 
 
 class BlockedScreen(Screen):
-    """Full screen 'battery drained' blocker - shows when timer expires"""
+    current_theme = StringProperty('battery_drained')
     
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
+        self.theme_data = OVERLAY_THEMES['battery_drained']
         self.build_ui()
     
+    def set_theme(self, theme_name):
+        if theme_name in OVERLAY_THEMES:
+            self.current_theme = theme_name
+            self.theme_data = OVERLAY_THEMES[theme_name]
+            self.update_ui()
+    
     def build_ui(self):
-        layout = BoxLayout(orientation='vertical', padding=20)
+        self.layout = FloatLayout()
         
-        layout.add_widget(Label(text='', size_hint_y=0.2))
+        self.bg_widget = Widget()
+        self.layout.add_widget(self.bg_widget)
         
-        layout.add_widget(Label(
-            text='Battery Drained',
-            font_size='48sp',
-            size_hint_y=0.15
-        ))
+        self.content = BoxLayout(
+            orientation='vertical',
+            padding=[dp(40), dp(60)],
+            spacing=dp(15),
+            size_hint=(1, 1)
+        )
         
-        layout.add_widget(Label(
-            text='Please charge your device',
-            font_size='24sp',
-            size_hint_y=0.1
-        ))
+        self.content.add_widget(Widget(size_hint_y=0.1))
         
-        layout.add_widget(Label(
-            text='0%',
-            font_size='36sp',
-            size_hint_y=0.1
-        ))
+        self.icon_label = Label(
+            text=self.theme_data['icon'],
+            font_size=sp(100),
+            size_hint_y=0.2
+        )
+        self.content.add_widget(self.icon_label)
         
-        layout.add_widget(Label(text='', size_hint_y=0.2))
+        self.title_label = Label(
+            text=self.theme_data['title'],
+            font_size=sp(36),
+            bold=True,
+            color=COLORS['text_primary'],
+            size_hint_y=0.1,
+            halign='center'
+        )
+        self.content.add_widget(self.title_label)
         
-        layout.add_widget(Label(
-            text='Parent: Enter PIN to unlock',
-            font_size='16sp',
-            size_hint_y=0.05,
-            color=(0.5, 0.5, 0.5, 1)
-        ))
+        self.subtitle_label = Label(
+            text=self.theme_data['subtitle'],
+            font_size=sp(18),
+            color=COLORS['text_secondary'],
+            size_hint_y=0.06
+        )
+        self.content.add_widget(self.subtitle_label)
         
-        pin_layout = BoxLayout(size_hint_y=0.1, spacing=10, padding=[50, 0, 50, 0])
+        self.content.add_widget(Widget(size_hint_y=0.05))
+        
+        self.percent_label = Label(
+            text=self.theme_data['percent'],
+            font_size=sp(48),
+            bold=True,
+            size_hint_y=0.12
+        )
+        self.content.add_widget(self.percent_label)
+        
+        self.detail_label = Label(
+            text=self.theme_data['detail'],
+            font_size=sp(14),
+            color=COLORS['text_secondary'],
+            size_hint_y=0.08,
+            halign='center',
+            text_size=(Window.width - dp(80), None)
+        )
+        self.content.add_widget(self.detail_label)
+        
+        self.content.add_widget(Widget(size_hint_y=0.1))
+        
+        unlock_hint = Label(
+            text='Parent: Enter PIN below',
+            font_size=sp(12),
+            color=(0.35, 0.35, 0.4, 1),
+            size_hint_y=0.04
+        )
+        self.content.add_widget(unlock_hint)
+        
+        pin_box = BoxLayout(
+            size_hint=(0.8, 0.08),
+            pos_hint={'center_x': 0.5},
+            spacing=dp(10)
+        )
+        
         self.pin_input = TextInput(
             multiline=False,
             password=True,
-            font_size='24sp',
+            hint_text='PIN',
+            input_filter='int',
+            font_size=sp(20),
             halign='center',
-            input_filter='int'
+            background_color=(0.15, 0.15, 0.18, 1),
+            foreground_color=COLORS['text_primary'],
+            cursor_color=COLORS['primary'],
+            size_hint_x=0.65
         )
-        pin_layout.add_widget(self.pin_input)
+        pin_box.add_widget(self.pin_input)
         
         unlock_btn = Button(
             text='Unlock',
-            size_hint_x=0.4,
-            background_color=(0.3, 0.3, 0.3, 1)
+            font_size=sp(14),
+            background_color=(0.25, 0.25, 0.3, 1),
+            size_hint_x=0.35
         )
         unlock_btn.bind(on_release=self.try_unlock)
-        pin_layout.add_widget(unlock_btn)
-        layout.add_widget(pin_layout)
+        pin_box.add_widget(unlock_btn)
         
-        self.status_label = Label(text='', size_hint_y=0.05, color=(1, 0, 0, 1))
-        layout.add_widget(self.status_label)
+        self.content.add_widget(pin_box)
         
-        layout.add_widget(Label(text='', size_hint_y=0.05))
+        self.status_label = Label(
+            text='',
+            font_size=sp(12),
+            color=COLORS['error'],
+            size_hint_y=0.04
+        )
+        self.content.add_widget(self.status_label)
         
-        self.add_widget(layout)
+        self.content.add_widget(Widget(size_hint_y=0.05))
+        
+        self.layout.add_widget(self.content)
+        self.add_widget(self.layout)
+    
+    def update_ui(self):
+        self.icon_label.text = self.theme_data['icon']
+        self.title_label.text = self.theme_data['title']
+        self.subtitle_label.text = self.theme_data['subtitle']
+        self.percent_label.text = self.theme_data['percent']
+        self.percent_label.color = self.theme_data['accent_color']
+        self.detail_label.text = self.theme_data['detail']
+        
+        self.bg_widget.canvas.clear()
+        with self.bg_widget.canvas:
+            Color(*self.theme_data['bg_color'])
+            Rectangle(pos=(0, 0), size=Window.size)
     
     def on_enter(self):
-        Window.clearcolor = (0, 0, 0, 1)
+        self.update_ui()
         AndroidHelper.start_lock_task()
         AndroidHelper.keep_screen_on(True)
     
@@ -785,19 +1205,17 @@ class BlockedScreen(Screen):
             self.status_label.text = ''
             self.manager.current = 'timer'
         else:
-            self.status_label.text = 'Incorrect PIN!'
+            self.status_label.text = 'Incorrect PIN'
             self.pin_input.text = ''
 
 
 class ScreenTimeLimiterApp(App):
-    """Main Application"""
-    
     def build(self):
-        Window.clearcolor = (0.1, 0.1, 0.1, 1)
+        Window.clearcolor = COLORS['background']
         Window.bind(on_keyboard=self.on_keyboard)
         AndroidHelper.request_all_permissions()
         
-        self.sm = ScreenManager()
+        self.sm = ScreenManager(transition=FadeTransition(duration=0.3))
         self.sm.add_widget(LoginScreen(name='login'))
         self.sm.add_widget(TimerScreen(name='timer'))
         self.sm.add_widget(BlockedScreen(name='blocked'))
@@ -805,7 +1223,6 @@ class ScreenTimeLimiterApp(App):
         return self.sm
     
     def on_keyboard(self, window, key, scancode, codepoint, modifier):
-        """Handle keyboard events - block back button on blocked screen"""
         if key == 27:
             if self.sm.current == 'blocked':
                 print("Back button blocked on blocked screen!")
@@ -838,13 +1255,16 @@ class ScreenTimeLimiterApp(App):
                 print(f"Error checking timer: {e}")
         
         if should_block:
-            Clock.schedule_once(lambda dt: self.show_block_screen(), 0.5)
+            selected = config.get('selected_overlay', 'random')
+            if selected == 'random':
+                selected = random.choice(list(OVERLAY_THEMES.keys()))
+            Clock.schedule_once(lambda dt: self.show_block_screen(selected), 0.5)
     
-    def show_block_screen(self):
-        """Show the blocking screen"""
+    def show_block_screen(self, theme='battery_drained'):
+        self.sm.get_screen('blocked').set_theme(theme)
         self.sm.current = 'blocked'
-        Window.clearcolor = (0, 0, 0, 1)
-        print("Block screen displayed!")
+        Window.clearcolor = OVERLAY_THEMES.get(theme, OVERLAY_THEMES['battery_drained'])['bg_color']
+        print(f"Block screen displayed with theme: {theme}")
 
 
 if __name__ == '__main__':
