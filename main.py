@@ -700,19 +700,46 @@ class ScreenTimeLimiterApp(App):
         Window.clearcolor = (0.1, 0.1, 0.1, 1)
         AndroidHelper.request_all_permissions()
         
-        sm = ScreenManager()
-        sm.add_widget(LoginScreen(name='login'))
-        sm.add_widget(TimerScreen(name='timer'))
-        sm.add_widget(BlockedScreen(name='blocked'))
+        self.sm = ScreenManager()
+        self.sm.add_widget(LoginScreen(name='login'))
+        self.sm.add_widget(TimerScreen(name='timer'))
+        self.sm.add_widget(BlockedScreen(name='blocked'))
         
-        return sm
+        return self.sm
     
     def on_start(self):
+        should_block = False
+        
+        if ANDROID_AVAILABLE:
+            try:
+                intent = mActivity.getIntent()
+                if intent and intent.getBooleanExtra("show_block_screen", False):
+                    print("App launched by service in block mode")
+                    should_block = True
+            except Exception as e:
+                print(f"Error checking intent: {e}")
+        
         config = Config.load()
         if config.get('is_timer_active') and config.get('timer_end_timestamp'):
-            end_time = datetime.fromisoformat(config['timer_end_timestamp'])
-            if datetime.now() >= end_time:
-                print("Timer expired while app was closed - showing overlay")
+            try:
+                end_time = datetime.fromisoformat(config['timer_end_timestamp'])
+                if datetime.now() >= end_time:
+                    print("Timer expired - showing block screen")
+                    should_block = True
+                    config['is_timer_active'] = False
+                    config['timer_end_timestamp'] = None
+                    Config.save(config)
+            except Exception as e:
+                print(f"Error checking timer: {e}")
+        
+        if should_block:
+            Clock.schedule_once(lambda dt: self.show_block_screen(), 0.5)
+    
+    def show_block_screen(self):
+        """Show the blocking screen"""
+        self.sm.current = 'blocked'
+        Window.clearcolor = (0, 0, 0, 1)
+        print("Block screen displayed!")
 
 
 if __name__ == '__main__':
