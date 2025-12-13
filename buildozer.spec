@@ -39,6 +39,8 @@ android.add_resources = res
 
 services = TimerService:service/main.py:foreground
 
+android.release_artifact = apk
+
 [buildozer]
 log_level = 2
 warn_on_root = 1
