@@ -1,4 +1,4 @@
-name: Build Android APK
+name: Build Android APK and AAB
 
 on:
   push:
@@ -23,11 +23,8 @@ jobs:
     - name: Install system dependencies
       run: |
         sudo apt-get update
-        # Remove conflicting libunwind packages if present
         sudo apt-get remove -y libunwind-14-dev || true
-        # Fix any broken packages first
         sudo apt-get --fix-broken install -y
-        # Install libunwind-dev first to satisfy gstreamer dependency
         sudo apt-get install -y libunwind-dev || true
         sudo apt-get install -y \
           python3-pip \
@@ -91,12 +88,10 @@ jobs:
     - name: Install Python dependencies
       run: |
         python -m pip install --upgrade pip
-        # Pin Cython to < 3.0 to fix pyjnius compatibility (long type issue)
         pip install buildozer "cython<3" virtualenv
 
     - name: Pre-download Gradle
       run: |
-        # Pre-download Gradle to avoid transient 503 errors during build
         mkdir -p ~/.gradle/wrapper/dists/gradle-8.0.2-all
         for i in 1 2 3; do
           wget -q https://services.gradle.org/distributions/gradle-8.0.2-all.zip -O /tmp/gradle-8.0.2-all.zip && break
@@ -109,21 +104,49 @@ jobs:
 
     - name: Clean previous build artifacts
       run: |
-        # Clean pyjnius build artifacts to force rebuild with correct Cython
         rm -rf .buildozer/android/platform/build-*/build/other_builds/pyjnius* || true
         rm -rf .buildozer/android/platform/build-*/dists/* || true
 
-    - name: Build APK
+    - name: Create Release Keystore
       run: |
-        # Retry build up to 3 times to handle transient network errors (503, etc)
+        keytool -genkeypair -v \
+          -keystore release.keystore \
+          -alias youtubelimiter \
+          -keyalg RSA \
+          -keysize 2048 \
+          -validity 10000 \
+          -storepass android123 \
+          -keypass android123 \
+          -dname "CN=YouTube Limiter, OU=Development, O=ParentalControl, L=Unknown, ST=Unknown, C=US"
+
+    - name: Build Release APK
+      run: |
+        export P4A_RELEASE_KEYSTORE=$PWD/release.keystore
+        export P4A_RELEASE_KEYSTORE_PASSWD=android123
+        export P4A_RELEASE_KEYALIAS_PASSWD=android123
+        export P4A_RELEASE_KEYALIAS=youtubelimiter
         for i in 1 2 3; do
           echo "Build attempt $i..."
-          yes | buildozer android debug 2>&1 | tee build.log && break
+          yes | buildozer android release 2>&1 | tee build.log && break
           echo "Build failed, waiting 30 seconds before retry..."
           sleep 30
         done
-        # Check if APK was created
         ls -la bin/*.apk 2>/dev/null || (echo "APK not found after 3 attempts" && exit 1)
+      timeout-minutes: 120
+
+    - name: Build AAB (Android App Bundle)
+      run: |
+        export P4A_RELEASE_KEYSTORE=$PWD/release.keystore
+        export P4A_RELEASE_KEYSTORE_PASSWD=android123
+        export P4A_RELEASE_KEYALIAS_PASSWD=android123
+        export P4A_RELEASE_KEYALIAS=youtubelimiter
+        for i in 1 2 3; do
+          echo "AAB Build attempt $i..."
+          yes | buildozer android release aab 2>&1 | tee build-aab.log && break
+          echo "AAB Build failed, waiting 30 seconds before retry..."
+          sleep 30
+        done
+        ls -la bin/*.aab 2>/dev/null || echo "AAB not found - may require manual configuration"
       timeout-minutes: 120
 
     - name: Upload build log on failure
@@ -131,20 +154,33 @@ jobs:
       uses: actions/upload-artifact@v4
       with:
         name: build-log
-        path: build.log
+        path: |
+          build.log
+          build-aab.log
         retention-days: 7
 
-    - name: Upload APK artifact
+    - name: Upload Release APK artifact
       uses: actions/upload-artifact@v4
       with:
-        name: youtube-limiter-apk
-        path: bin/*.apk
+        name: youtube-limiter-release-apk
+        path: bin/*-release*.apk
         retention-days: 30
+
+    - name: Upload AAB artifact
+      if: success()
+      uses: actions/upload-artifact@v4
+      with:
+        name: youtube-limiter-aab
+        path: bin/*.aab
+        retention-days: 30
+        if-no-files-found: ignore
 
     - name: Create Release (on tag)
       if: startsWith(github.ref, 'refs/tags/')
       uses: softprops/action-gh-release@v1
       with:
-        files: bin/*.apk
+        files: |
+          bin/*-release*.apk
+          bin/*.aab
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

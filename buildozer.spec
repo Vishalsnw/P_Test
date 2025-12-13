@@ -16,10 +16,10 @@ fullscreen = 0
 
 android.permissions = INTERNET,ACCESS_NETWORK_STATE,SYSTEM_ALERT_WINDOW,PACKAGE_USAGE_STATS,RECEIVE_BOOT_COMPLETED,FOREGROUND_SERVICE,FOREGROUND_SERVICE_SPECIAL_USE,BIND_DEVICE_ADMIN,GET_TASKS,WAKE_LOCK
 
-android.api = 33
+android.api = 35
 android.minapi = 21
 android.ndk = 25b
-android.sdk = 33
+android.sdk = 35
 
 android.accept_sdk_license = True
 
