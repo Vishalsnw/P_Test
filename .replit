@@ -23,7 +23,7 @@ name = "YouTube Limiter App"
 author = "agent"
 
 [workflows.workflow.metadata]
-outputType = "vnc"
+outputType = "console"
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"

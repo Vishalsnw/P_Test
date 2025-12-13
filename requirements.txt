@@ -2,3 +2,4 @@ kivy>=2.2.0
 kivy
 kivy
 kivy
+kivy
