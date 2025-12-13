@@ -131,22 +131,14 @@ jobs:
           echo "Build failed, waiting 30 seconds before retry..."
           sleep 30
         done
-        ls -la bin/*.apk 2>/dev/null || (echo "APK not found after 3 attempts" && exit 1)
-      timeout-minutes: 120
-
-    - name: Build AAB (Android App Bundle)
-      run: |
-        export P4A_RELEASE_KEYSTORE=$PWD/release.keystore
-        export P4A_RELEASE_KEYSTORE_PASSWD=android123
-        export P4A_RELEASE_KEYALIAS_PASSWD=android123
-        export P4A_RELEASE_KEYALIAS=youtubelimiter
-        for i in 1 2 3; do
-          echo "AAB Build attempt $i..."
-          yes | buildozer android release aab 2>&1 | tee build-aab.log && break
-          echo "AAB Build failed, waiting 30 seconds before retry..."
-          sleep 30
-        done
-        ls -la bin/*.aab 2>/dev/null || echo "AAB not found - may require manual configuration"
+        echo "Listing bin directory contents:"
+        ls -la bin/ || true
+        if ls bin/*.apk 1>/dev/null 2>&1 || ls bin/*.aab 1>/dev/null 2>&1; then
+          echo "Build artifacts found!"
+        else
+          echo "No APK or AAB found after 3 attempts"
+          exit 1
+        fi
       timeout-minutes: 120
 
     - name: Upload build log on failure
@@ -156,18 +148,17 @@ jobs:
         name: build-log
         path: |
           build.log
-          build-aab.log
         retention-days: 7
 
     - name: Upload Release APK artifact
       uses: actions/upload-artifact@v4
       with:
         name: youtube-limiter-release-apk
-        path: bin/*-release*.apk
+        path: bin/*.apk
         retention-days: 30
+        if-no-files-found: ignore
 
     - name: Upload AAB artifact
-      if: success()
       uses: actions/upload-artifact@v4
       with:
         name: youtube-limiter-aab
@@ -180,7 +171,7 @@ jobs:
       uses: softprops/action-gh-release@v1
       with:
         files: |
-          bin/*-release*.apk
+          bin/*.apk
           bin/*.aab
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
