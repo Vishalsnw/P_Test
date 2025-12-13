@@ -323,6 +323,95 @@ class AndroidHelper:
         except Exception as e:
             print(f"Error hiding overlay: {e}")
         return False
+    
+    @staticmethod
+    def start_lock_task():
+        """Start Android Lock Task Mode to prevent home/back/recent apps"""
+        if not ANDROID_AVAILABLE:
+            print("Would start lock task mode on Android")
+            return True
+        
+        try:
+            from jnius import autoclass
+            
+            activity = mActivity
+            activity.startLockTask()
+            print("Lock task mode started - home/back buttons disabled!")
+            return True
+        except Exception as e:
+            print(f"Error starting lock task: {e}")
+            import traceback
+            traceback.print_exc()
+            return False
+    
+    @staticmethod
+    def stop_lock_task():
+        """Stop Android Lock Task Mode"""
+        if not ANDROID_AVAILABLE:
+            print("Would stop lock task mode on Android")
+            return True
+        
+        try:
+            activity = mActivity
+            activity.stopLockTask()
+            print("Lock task mode stopped!")
+            return True
+        except Exception as e:
+            print(f"Error stopping lock task: {e}")
+            return False
+    
+    @staticmethod
+    def keep_screen_on(enable):
+        """Keep the screen on or allow it to sleep"""
+        if not ANDROID_AVAILABLE:
+            print(f"Would set keep screen on: {enable}")
+            return True
+        
+        try:
+            from jnius import autoclass
+            
+            activity = mActivity
+            window = activity.getWindow()
+            WindowManager = autoclass('android.view.WindowManager')
+            LayoutParams = autoclass('android.view.WindowManager$LayoutParams')
+            
+            if enable:
+                window.addFlags(LayoutParams.FLAG_KEEP_SCREEN_ON)
+                print("Screen will stay on")
+            else:
+                window.clearFlags(LayoutParams.FLAG_KEEP_SCREEN_ON)
+                print("Screen can sleep now")
+            return True
+        except Exception as e:
+            print(f"Error setting screen on: {e}")
+            return False
+    
+    @staticmethod
+    def hide_navigation_bar():
+        """Hide the navigation bar for immersive mode"""
+        if not ANDROID_AVAILABLE:
+            return True
+        
+        try:
+            from jnius import autoclass
+            
+            View = autoclass('android.view.View')
+            activity = mActivity
+            
+            decor_view = activity.getWindow().getDecorView()
+            flags = (View.SYSTEM_UI_FLAG_LAYOUT_STABLE |
+                     View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION |
+                     View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN |
+                     View.SYSTEM_UI_FLAG_HIDE_NAVIGATION |
+                     View.SYSTEM_UI_FLAG_FULLSCREEN |
+                     View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY)
+            
+            decor_view.setSystemUiVisibility(flags)
+            print("Navigation bar hidden!")
+            return True
+        except Exception as e:
+            print(f"Error hiding navigation: {e}")
+            return False
 
 
 class LoginScreen(Screen):
@@ -680,11 +769,18 @@ class BlockedScreen(Screen):
     
     def on_enter(self):
         Window.clearcolor = (0, 0, 0, 1)
+        AndroidHelper.start_lock_task()
+        AndroidHelper.keep_screen_on(True)
+    
+    def on_leave(self):
+        AndroidHelper.stop_lock_task()
+        AndroidHelper.keep_screen_on(False)
     
     def try_unlock(self, instance):
         config = Config.load()
         if self.pin_input.text == config['parent_pin']:
             AndroidHelper.hide_overlay_window()
+            AndroidHelper.stop_lock_task()
             self.pin_input.text = ''
             self.status_label.text = ''
             self.manager.current = 'timer'
@@ -698,6 +794,7 @@ class ScreenTimeLimiterApp(App):
     
     def build(self):
         Window.clearcolor = (0.1, 0.1, 0.1, 1)
+        Window.bind(on_keyboard=self.on_keyboard)
         AndroidHelper.request_all_permissions()
         
         self.sm = ScreenManager()
@@ -706,6 +803,14 @@ class ScreenTimeLimiterApp(App):
         self.sm.add_widget(BlockedScreen(name='blocked'))
         
         return self.sm
+    
+    def on_keyboard(self, window, key, scancode, codepoint, modifier):
+        """Handle keyboard events - block back button on blocked screen"""
+        if key == 27:
+            if self.sm.current == 'blocked':
+                print("Back button blocked on blocked screen!")
+                return True
+        return False
     
     def on_start(self):
         should_block = False
