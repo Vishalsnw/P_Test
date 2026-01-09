@@ -6,7 +6,7 @@ package.domain = org.parentalcontrol
 source.dir = .
 source.include_exts = py,png,jpg,kv,atlas,json,xml
 
-version = 1.2.0
+version = 1.3.0
 
 requirements = python3,kivy,pyjnius,android
 
