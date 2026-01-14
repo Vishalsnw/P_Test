@@ -21,7 +21,6 @@ android.ndk = 28
 android.api = 35
 android.minapi = 21
 android.ndk_api = 21
-android.sdk = 35
 android.gradle_version = 8.9
 
 # Linker flags for 16KB page support (ELF alignment)
@@ -29,7 +28,7 @@ android.extra_linker_flags = -Wl,-z,max-page-size=16384
 
 android.accept_sdk_license = True
 
-android.arch = arm64-v8a
+android.archs = arm64-v8a
 
 android.allow_backup = True
 
