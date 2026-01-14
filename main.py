@@ -259,7 +259,12 @@ class AndroidHelper:
             from android import mActivity
             from jnius import autoclass
             service = autoclass('org.parentalcontrol.youtubelimiter.ServiceTimerservice')
-            service.start(mActivity, '')
+            
+            # For Android 14+ (API 34/35), we need to specify the service type
+            # We use DATA_SYNC as it's the most appropriate standard type for a background timer
+            # that syncs usage state.
+            service.start(mActivity, 'DATA_SYNC')
+            
             AndroidHelper.service_running = True
             print("Timer service started successfully!")
             return True
