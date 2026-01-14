@@ -7,9 +7,9 @@ source.dir = .
 source.include_exts = py,png,jpg,kv,atlas,json,xml
 
 version = 1.3.3
-p4a.branch = develop
+p4a.branch = master
 
-requirements = python3,kivy,pyjnius,android
+requirements = python3,kivy==2.3.0,pyjnius,android,requests,certifi,urllib3,idna,six,filetype,chardet
 
 orientation = portrait
 
@@ -17,7 +17,7 @@ fullscreen = 0
 
 android.permissions = INTERNET,ACCESS_NETWORK_STATE,SYSTEM_ALERT_WINDOW,PACKAGE_USAGE_STATS,RECEIVE_BOOT_COMPLETED,FOREGROUND_SERVICE,FOREGROUND_SERVICE_SPECIAL_USE,BIND_DEVICE_ADMIN,GET_TASKS,WAKE_LOCK,FOREGROUND_SERVICE_DATA_SYNC
 
-android.ndk = 28
+android.ndk = 27c
 android.api = 35
 android.minapi = 21
 android.ndk_api = 21
