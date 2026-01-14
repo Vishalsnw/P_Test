@@ -17,11 +17,11 @@ fullscreen = 0
 
 android.permissions = INTERNET,ACCESS_NETWORK_STATE,SYSTEM_ALERT_WINDOW,PACKAGE_USAGE_STATS,RECEIVE_BOOT_COMPLETED,FOREGROUND_SERVICE,FOREGROUND_SERVICE_SPECIAL_USE,BIND_DEVICE_ADMIN,GET_TASKS,WAKE_LOCK,FOREGROUND_SERVICE_DATA_SYNC
 
-android.ndk = 28
-android.api = 35
+android.ndk = 27c
+android.api = 34
 android.minapi = 21
 android.ndk_api = 21
-android.sdk = 35
+android.sdk = 34
 android.gradle_version = 8.9
 
 # Linker flags for 16KB page support (ELF alignment)
