@@ -6,7 +6,7 @@ package.domain = org.parentalcontrol
 source.dir = .
 source.include_exts = py,png,jpg,kv,atlas,json,xml
 
-version = 1.3.0
+version = 1.3.1
 
 requirements = python3,kivy,pyjnius,android
 
@@ -14,7 +14,7 @@ orientation = portrait
 
 fullscreen = 0
 
-android.permissions = INTERNET,ACCESS_NETWORK_STATE,SYSTEM_ALERT_WINDOW,PACKAGE_USAGE_STATS,RECEIVE_BOOT_COMPLETED,FOREGROUND_SERVICE,FOREGROUND_SERVICE_SPECIAL_USE,BIND_DEVICE_ADMIN,GET_TASKS,WAKE_LOCK
+android.permissions = INTERNET,ACCESS_NETWORK_STATE,SYSTEM_ALERT_WINDOW,PACKAGE_USAGE_STATS,RECEIVE_BOOT_COMPLETED,FOREGROUND_SERVICE,FOREGROUND_SERVICE_SPECIAL_USE,BIND_DEVICE_ADMIN,GET_TASKS,WAKE_LOCK,FOREGROUND_SERVICE_DATA_SYNC
 
 android.ndk = 28
 android.api = 35
