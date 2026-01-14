@@ -28,3 +28,11 @@ outputType = "vnc"
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "python main.py"
+
+[userenv]
+
+[userenv.shared]
+P4A_RELEASE_KEYALIAS = "youtubelimiter"
+P4A_RELEASE_KEYALIAS_PASSWD = "android123"
+P4A_RELEASE_KEYSTORE_PASSWD = "android123"
+P4A_RELEASE_KEYSTORE = "release.keystore"

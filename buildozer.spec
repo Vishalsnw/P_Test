@@ -6,7 +6,7 @@ package.domain = org.parentalcontrol
 source.dir = .
 source.include_exts = py,png,jpg,kv,atlas,json,xml
 
-version = 1.3.2
+version = 1.3.3
 p4a.branch = develop
 
 requirements = python3,kivy,pyjnius,android
